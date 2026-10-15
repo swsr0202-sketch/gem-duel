@@ -41,6 +41,9 @@ td,th{border:1px solid rgba(255,255,255,.3);padding:8px;text-align:center}
 .tip{background:#fff8d6;color:#5a3c00;border-radius:10px;padding:10px;margin-top:10px}
 .kbd{background:#000;color:#ffe066;padding:2px 8px;border-radius:6px}
 @media(max-width:700px){#board{grid-template-columns:repeat(10,30px);grid-template-rows:repeat(10,30px)}.cell{width:30px;height:30px}}
+.inp{background:#0f1633;border:2px solid #7df9ff;color:#fff;border-radius:10px;padding:10px 12px;font-size:16px;margin:4px}
+#pwModal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:99}
+#pwBox{background:#1c254f;border:3px solid #ffe066;border-radius:18px;padding:24px;text-align:center;max-width:330px;width:90%}
 </style>
 </head>
 <body>
@@ -64,6 +67,22 @@ td,th{border:1px solid rgba(255,255,255,.3);padding:8px;text-align:center}
 <button class="btn blue" onclick="startGame('duo')">👥 雙人PK（輪流切）</button>
 <button class="btn ghost" onclick="toggleHelp()">❓ 什麼是線對稱？</button>
 </div>
+<div style="margin-top:10px;background:rgba(255,255,255,.08);border-radius:12px;padding:10px">
+<b>🧑‍🎓 挑戰前先填資料（空白就當訪客）：</b><br>
+班級 <input id="inClass" class="inp" placeholder="例如 502" style="width:110px">
+姓名 <input id="inName" class="inp" placeholder="王小明" style="width:130px">
+座號 <input id="inSeat" class="inp" placeholder="12" style="width:80px">
+</div>
+<div style="margin-top:8px"><button class="btn ghost" onclick="openPw()">🔒 教室後台（老師用）</button></div>
+<div id="pwModal" class="hidden"><div id="pwBox">
+<h3 style="margin-top:0">🔒 教室後台登入</h3>
+<p>請輸入老師密碼</p>
+<input id="pwInput" type="password" class="inp" placeholder="請輸入密碼" style="width:180px" inputmode="numeric" onkeydown="if(event.key==='Enter')checkPw()">
+<br><br>
+<button class="btn" onclick="checkPw()">進入</button>
+<button class="btn ghost" onclick="closePw()">取消</button>
+<div id="pwErr" style="color:#ff9090;min-height:24px;margin-top:6px"></div>
+</div></div>
 <div id="helpBox" class="tip hidden">把圖形沿著一條線<b>對折</b>，兩邊完全重合，這條線就叫<b>對稱軸</b>。正方形有4條，長方形2條，等腰三角形1條。本遊戲會出現：直線（左右）、橫線（上下）、斜線、雙軸四種，越後面越難！</div>
 <div class="tip">🏆 最高紀錄：<span id="best">0</span> 分｜稱號：<span id="title">切割學徒</span></div>
 </div>
@@ -107,6 +126,9 @@ let mode='solo', round=0, totalRounds=5, timeLeft=60, timer=null, isDown=false, 
 let given=new Set(), answer=new Set(), mine=new Set(), axis='vertical';
 let meTotal=0, aiTotal=0, p1Total=0, p2Total=0, turn='P1', combo=0, previewUsed=false, history=[];
 let aiProg=0, aiTimer=null;
+let player={cls:'訪客',name:'訪客',seat:''};
+const SB_URL='https://nbshcgikhngrjicgbbuc.supabase.co';
+const SB_KEY='sb_publishable_TNAMhxWC-55vrX6QfatdQw_K8RD2Wj8';
 
 const key=(r,c)=>r+','+c;
 function mirror(r,c,a){
@@ -262,6 +284,7 @@ function submitCut(){
  let msg='正確率 '+Math.round(s.acc*100)+'%（對 '+s.tp+'／多 '+s.fp+'／漏 '+s.fn+'）＋速度 '+timeBonus+'＋連擊 '+comboBonus+' ＝ '+total+'分 '+('★'.repeat(stars));
  document.getElementById('msg').textContent=msg;
  history.push({axis,acc:s.acc,total});
+ uploadRecord(s,total);
  if(mode==='solo'){meTotal+=total;stopAI();aiTotal+=aiFinal();updateScore();nextRound(total);}
  else if(mode==='duo'){if(turn==='P1'){p1Total+=total;}else{p2Total+=total;}updateScore();nextDuo();}
  else{meTotal+=total;updateScore();setTimeout(()=>{round++;randShape();},1200);}
@@ -299,6 +322,9 @@ function nextDuo(){
 // 流程
 function startGame(m){
  mode=m;round=0;meTotal=0;aiTotal=0;p1Total=0;p2Total=0;combo=0;history=[];turn='P1';
+ player.cls=document.getElementById('inClass').value.trim()||'訪客';
+ player.name=document.getElementById('inName').value.trim()||'訪客';
+ player.seat=document.getElementById('inSeat').value.trim()||'';
  totalRounds = m==='practice'?99:5;
  document.getElementById('home').classList.add('hidden');
  document.getElementById('result').classList.add('hidden');
@@ -349,6 +375,17 @@ function saveBest(s){let b=+localStorage.getItem('gemBest')||0;if(s>b)localStora
 function loadBest(){let b=+localStorage.getItem('gemBest')||0;document.getElementById('best').textContent=b;
  document.getElementById('title').textContent=b>800?'💎 寶石大師':b>500?'🔥 切割高手':b>200?'✨ 見習工匠':'🌱 切割學徒';}
 function toggleHelp(){document.getElementById('helpBox').classList.toggle('hidden');}
+function uploadRecord(s,total){
+ try{
+  fetch(SB_URL+'/rest/v1/game_records',{method:'POST',
+   headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},
+   body:JSON.stringify({class_name:player.cls,student_name:player.name+(mode==='duo'?'('+turn+')':''),seat_no:player.seat,mode,round_no:round+1,axis,accuracy:Math.round(s.acc*1000)/1000,tp:s.tp,fp:s.fp,fn:s.fn,score:total})
+  }).catch(()=>{});
+ }catch(e){}
+}
+function openPw(){document.getElementById('pwModal').classList.remove('hidden');document.getElementById('pwErr').textContent='';document.getElementById('pwInput').value='';setTimeout(()=>document.getElementById('pwInput').focus(),50);}
+function closePw(){document.getElementById('pwModal').classList.add('hidden');}
+function checkPw(){if(document.getElementById('pwInput').value==='8888'){sessionStorage.setItem('hua_teacher','1');location.href='teacher.html';}else{document.getElementById('pwErr').textContent='密碼錯誤，請再試一次';}}
 // 音效
 let AC=null;
 function beep(f,d){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();let o=AC.createOscillator(),g=AC.createGain();o.frequency.value=f;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+d);o.stop(AC.currentTime+d);}catch(e){}}

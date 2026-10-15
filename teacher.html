@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>教室後台｜HUA老師</title>
+<style>
+*{box-sizing:border-box;font-family:"Microsoft JhengHei","Noto Sans TC",sans-serif}
+body{margin:0;background:#0f1633;color:#fff;min-height:100vh;padding:16px}
+.wrap{max-width:1100px;margin:0 auto}
+h1{color:#ffe066}
+.card{background:rgba(255,255,255,.08);border:2px solid rgba(125,249,255,.4);border-radius:14px;padding:14px;margin:10px 0}
+label{margin-right:4px}
+.inp,.sel{background:#0a1030;border:2px solid #7df9ff;color:#fff;border-radius:10px;padding:8px 10px;font-size:15px;margin:4px}
+.btn{cursor:pointer;border:none;border-radius:10px;padding:10px 16px;font-size:15px;font-weight:700;margin:4px;background:linear-gradient(180deg,#7df9ff,#2d9cdb);color:#04263b}
+.btn.ghost{background:#26315e;color:#fff;border:1px solid #7df9ff}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{border:1px solid rgba(255,255,255,.25);padding:6px 8px;text-align:center}
+th{background:#26315e;position:sticky;top:0}
+.low{color:#ff8080;font-weight:800}
+.good{color:#7dff9a;font-weight:800}
+#stat b{color:#ffe066}
+a{color:#7df9ff}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>🔒 教室後台：學生錯題紀錄</h1>
+<div><a href="index.html">← 回遊戲首頁</a>　<a href="https://swsr0202-sketch.github.io/">回教學天地首頁</a></div>
+<div class="card">
+<b>篩選條件：</b><br>
+班級 <input id="fClass" class="inp" placeholder="例如 502" style="width:110px">
+姓名 <input id="fName" class="inp" placeholder="王小明" style="width:130px">
+日期 <input id="fDate" type="date" class="inp">
+對稱軸 <select id="fAxis" class="sel">
+<option value="">全部</option><option value="vertical">左右</option><option value="horizontal">上下</option><option value="diag-main">斜＼</option><option value="diag-anti">斜／</option><option value="double">雙軸</option>
+</select>
+<label><input type="checkbox" id="fWrong" checked> 只看有錯的</label>
+<button class="btn" onclick="load()">查詢</button>
+<button class="btn ghost" onclick="resetF()">清除</button>
+</div>
+<div class="card" id="stat">尚未查詢</div>
+<div class="card" style="overflow-x:auto">
+<table><thead><tr>
+<th>時間</th><th>班級</th><th>姓名</th><th>座號</th><th>模式</th><th>回合</th><th>對稱軸</th><th>正確率</th><th>答對</th><th>多畫</th><th>漏畫</th><th>得分</th>
+</tr></thead><tbody id="rows"><tr><td colspan="12">按查詢載入資料</td></tr></tbody></table>
+</div>
+</div>
+<script>
+if(sessionStorage.getItem('hua_teacher')!=='1'){location.href='index.html';}
+const SB_URL='https://nbshcgikhngrjicgbbuc.supabase.co';
+const SB_KEY='sb_publishable_TNAMhxWC-55vrX6QfatdQw_K8RD2Wj8';
+const AX={vertical:'左右',horizontal:'上下','diag-main':'斜＼','diag-anti':'斜／',double:'雙軸x2'};
+let cache=[];
+async function load(){
+ document.getElementById('rows').innerHTML='<tr><td colspan="12">載入中…</td></tr>';
+ const r=await fetch(SB_URL+'/rest/v1/game_records?select=*&order=created_at.desc&limit=1000',
+  {headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY}});
+ cache=await r.json();
+ render();
+}
+function render(){
+ const c=document.getElementById('fClass').value.trim();
+ const n=document.getElementById('fName').value.trim();
+ const d=document.getElementById('fDate').value;
+ const a=document.getElementById('fAxis').value;
+ const w=document.getElementById('fWrong').checked;
+ const list=cache.filter(x=>{
+  if(c&&!(x.class_name||'').includes(c))return false;
+  if(n&&!(x.student_name||'').includes(n))return false;
+  if(d&&(x.created_at||'').slice(0,10)!==d)return false;
+  if(a&&x.axis!==a)return false;
+  if(w&&(+x.accuracy)>=1)return false;
+  return true;
+ });
+ document.getElementById('stat').innerHTML='共 <b>'+list.length+'</b> 筆'+(list.length?('，平均正確率 <b>'+Math.round(list.reduce((s,x)=>s+ +x.accuracy,0)/list.length*100)+'%</b>'):'');
+ document.getElementById('rows').innerHTML=list.length?list.map(x=>{
+  const p=Math.round(x.accuracy*100);
+  const t=(x.created_at||'').replace('T',' ').slice(0,16);
+  return '<tr><td>'+t+'</td><td>'+esc(x.class_name)+'</td><td>'+esc(x.student_name)+'</td><td>'+esc(x.seat_no)+'</td><td>'+esc(x.mode)+'</td><td>'+x.round_no+'</td><td>'+(AX[x.axis]||x.axis)+'</td><td class="'+(p<70?'low':'good')+'">'+p+'%</td><td>'+x.tp+'</td><td>'+x.fp+'</td><td>'+x.fn+'</td><td>'+x.score+'</td></tr>';
+ }).join(''):'<tr><td colspan="12">沒有符合的紀錄</td></tr>';
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
+function resetF(){document.getElementById('fClass').value='';document.getElementById('fName').value='';document.getElementById('fDate').value='';document.getElementById('fAxis').value='';render();}
+load();
+</script>
+</body>
+</html>
