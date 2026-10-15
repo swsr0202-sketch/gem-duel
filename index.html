@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>寶石切割 PK：線對稱大挑戰</title>
+<style>
+*{box-sizing:border-box;font-family:"Microsoft JhengHei","Noto Sans TC",sans-serif}
+body{margin:0;background:radial-gradient(circle at 50% 20%,#2b3a67,#0f1633 70%);color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:16px}
+h1{margin:8px 0;font-size:28px;text-shadow:0 2px 12px #7df9ff}
+.sub{color:#bcd3ff;margin-bottom:12px}
+.card{background:rgba(255,255,255,.1);border:2px solid rgba(125,249,255,.4);border-radius:16px;padding:16px;max-width:980px;width:100%;margin:8px 0;backdrop-filter:blur(6px)}
+.btn{cursor:pointer;border:none;border-radius:12px;padding:12px 18px;font-size:18px;font-weight:700;margin:6px;background:linear-gradient(180deg,#ffe066,#ff9f1c);color:#4a2500;box-shadow:0 4px 0 #a85b00;transition:.15s}
+.btn:active{transform:translateY(3px);box-shadow:none}
+.btn.blue{background:linear-gradient(180deg,#7df9ff,#2d9cdb);color:#04263b;box-shadow:0 4px 0 #155e86}
+.btn.green{background:linear-gradient(180deg,#b8f36d,#2fbf71);color:#07331a;box-shadow:0 4px 0 #1a6b3c}
+.btn.ghost{background:#26315e;color:#fff;box-shadow:none;border:1px solid #7df9ff}
+.modes{display:flex;gap:8px;flex-wrap:wrap}
+#layout{display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+#boardWrap{position:relative}
+#board{display:grid;grid-template-columns:repeat(10,38px);grid-template-rows:repeat(10,38px);gap:2px;background:#0a1030;padding:8px;border-radius:12px;border:3px solid #7df9ff;touch-action:none;user-select:none}
+.cell{width:38px;height:38px;background:#1c254f;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px}
+.cell.given{background:linear-gradient(180deg,#59c2ff,#2d6cdf);box-shadow:inset 0 0 8px #fff}
+.cell.mine{background:linear-gradient(180deg,#ff8ac2,#e0447c);box-shadow:0 0 10px #ff5da2}
+.cell.axis{background:#0a1030;border:2px dashed #ffe066}
+.cell.error{outline:3px solid #ff4040}
+.cell.hint-ok{outline:3px solid #51ff7a}
+#axisV{position:absolute;top:0;bottom:0;left:50%;width:4px;background:#ffe066;box-shadow:0 0 12px #ffe066;pointer-events:none}
+#axisH{position:absolute;left:0;right:0;top:50%;height:4px;background:#ffe066;box-shadow:0 0 12px #ffe066;pointer-events:none}
+#axisD{position:absolute;left:6%;top:6%;width:125%;height:4px;background:#ffe066;transform-origin:left center;pointer-events:none;box-shadow:0 0 12px #ffe066}
+.side{min-width:280px;flex:1}
+.bar{height:18px;background:#101845;border-radius:10px;overflow:hidden;margin:6px 0;border:1px solid #7df9ff}
+.bar>div{height:100%;width:0%;background:linear-gradient(90deg,#ff5da2,#ffe066);transition:width .3s}
+.bar.ai>div{background:linear-gradient(90deg,#7df9ff,#7a5cff)}
+.timer{font-size:28px;font-weight:900;color:#ffe066}
+.combo{font-size:18px;color:#7dff9a;font-weight:800}
+.stars{font-size:26px}
+table{width:100%;border-collapse:collapse}
+td,th{border:1px solid rgba(255,255,255,.3);padding:8px;text-align:center}
+.hidden{display:none!important}
+.tip{background:#fff8d6;color:#5a3c00;border-radius:10px;padding:10px;margin-top:10px}
+.kbd{background:#000;color:#ffe066;padding:2px 8px;border-radius:6px}
+@media(max-width:700px){#board{grid-template-columns:repeat(10,30px);grid-template-rows:repeat(10,30px)}.cell{width:30px;height:30px}}
+</style>
+</head>
+<body>
+<h1>💎 寶石切割 PK：線對稱大挑戰</h1>
+<div class="sub">國小五年級數學｜線對稱圖形｜畫出另一半，讓寶石完美對稱！</div>
+
+<div id="home" class="card">
+<h2>📜 遊戲說明（30秒看懂）</h2>
+<p>藍色是<b>師傅給的半顆寶石</b>，黃線是<b>對稱軸</b>。請在空格點出<b>粉紅色鏡像寶石</b>，讓對折後完全重合！</p>
+<ul>
+<li>🖱️ 點一下填色，再點一下擦掉，也可按住拖曳連塗</li>
+<li>🪞 <b>對折檢查</b>：偷看一次會扣一點速度分，但可以抓錯！</li>
+<li>⚔️ 單人PK：跟電腦「切割機器人」比5回合，總分高就贏</li>
+<li>👥 雙人PK：同一題輪流切，分數高的人奪得寶石王！</li>
+<li>💠 雙軸魔王關：要同時左右＋上下對稱，分數雙倍！</li>
+</ul>
+<div class="modes">
+<button class="btn green" onclick="startGame('practice')">🛠️ 練習模式（無時間）</button>
+<button class="btn" onclick="startGame('solo')">⚔️ 單人PK電腦（5回合）</button>
+<button class="btn blue" onclick="startGame('duo')">👥 雙人PK（輪流切）</button>
+<button class="btn ghost" onclick="toggleHelp()">❓ 什麼是線對稱？</button>
+</div>
+<div id="helpBox" class="tip hidden">把圖形沿著一條線<b>對折</b>，兩邊完全重合，這條線就叫<b>對稱軸</b>。正方形有4條，長方形2條，等腰三角形1條。本遊戲會出現：直線（左右）、橫線（上下）、斜線、雙軸四種，越後面越難！</div>
+<div class="tip">🏆 最高紀錄：<span id="best">0</span> 分｜稱號：<span id="title">切割學徒</span></div>
+</div>
+
+<div id="game" class="card hidden">
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap">
+<div><b id="roundLabel">第1回合</b>｜<span id="axisLabel"></span>｜<span id="modeLabel"></span></div>
+<div class="timer">⏱ <span id="time">60</span>s</div>
+</div>
+<div id="layout">
+<div id="boardWrap"><div id="board"></div><div id="axisV" class="hidden"></div><div id="axisH" class="hidden"></div><div id="axisD" class="hidden"></div></div>
+<div class="side">
+<div>😎 你 <span id="meScore">0</span> 分 <span class="combo" id="combo"></span></div>
+<div class="bar"><div id="meBar"></div></div>
+<div id="aiBox">🤖 切割機器人 <span id="aiScore">0</span> 分</div>
+<div class="bar ai" id="aiBarWrap"><div id="aiBar"></div></div>
+<div id="duoBox" class="hidden">🔵 P1:<span id="p1">0</span> ｜ 🔴 P2:<span id="p2">0</span> ｜現在：<b id="turn"></b></div>
+<div style="margin-top:8px">
+<button class="btn blue" onclick="previewFold()">🪞 對折檢查</button>
+<button class="btn ghost" onclick="clearMine()">🧹 清除我的</button>
+<button class="btn" onclick="submitCut()">💥 切割！送出</button>
+</div>
+<div id="msg" style="min-height:60px;margin-top:8px;font-weight:700"></div>
+<div class="tip">💡 秘訣：先數「離對稱軸幾格」，再到另一邊數同樣格數點下去，斜線就看轉彎方向！</div>
+</div>
+</div>
+</div>
+
+<div id="result" class="card hidden">
+<h2 id="winTitle"></h2>
+<div class="stars" id="starShow"></div>
+<p id="detail"></p>
+<table><tr><th>回合</th><th>對稱軸</th><th>你的正確率</th><th>得分</th></tr><tbody id="rec"></tbody></table>
+<br>
+<button class="btn" onclick="location.reload()">🔄 再玩一次</button>
+</div>
+
+<script>
+const N=10;
+let mode='solo', round=0, totalRounds=5, timeLeft=60, timer=null, isDown=false, paintVal=true;
+let given=new Set(), answer=new Set(), mine=new Set(), axis='vertical';
+let meTotal=0, aiTotal=0, p1Total=0, p2Total=0, turn='P1', combo=0, previewUsed=false, history=[];
+let aiProg=0, aiTimer=null;
+
+const key=(r,c)=>r+','+c;
+function mirror(r,c,a){
+ if(a==='vertical') return [r,N-1-c];
+ if(a==='horizontal') return [N-1-r,c];
+ if(a==='diag-main') return [c,r];
+ if(a==='diag-anti') return [N-1-c,N-1-r];
+ return null;
+}
+function isGivenSide(r,c,a){
+ if(a==='vertical') return c<5;
+ if(a==='horizontal') return r<5;
+ if(a==='diag-main') return c>r; // 上三角為題目
+ if(a==='diag-anti') return r+c<N-1;
+ return false;
+}
+function isAxisCell(r,c,a){
+ if(a==='vertical') return false;
+ if(a==='horizontal') return false;
+ if(a==='diag-main') return r===c;
+ if(a==='diag-anti') return r+c===N-1;
+ return false;
+}
+// 雙軸：左上為題目
+function mirrorsDouble(r,c){return [[r,N-1-c],[N-1-r,c],[N-1-r,N-1-c]];}
+
+function randShape(){
+ given.clear();answer.clear();mine.clear();previewUsed=false;
+ const axes=['vertical','horizontal','vertical','horizontal','diag-main','diag-anti'];
+ axis = (mode==='practice') ? axes[Math.floor(Math.random()*axes.length)]
+   : (round===4 ? 'double' : axes[round % axes.length]);
+ // 魔王雙軸
+ if(axis==='double'){ genDouble(); }
+ else{
+  let target = 4 + Math.min(round,4)*2 + Math.floor(Math.random()*3);
+  let tries=0;
+  while(given.size<target && tries<500){
+   tries++;
+   let r=Math.floor(Math.random()*N), c=Math.floor(Math.random()*N);
+   if(!isGivenSide(r,c,axis)||isAxisCell(r,c,axis)) continue;
+   // 保持連通好畫：第一顆隨機，之後盡量貼著已有
+   if(given.size>0 && Math.random()<0.7){
+    let arr=[...given].map(s=>s.split(',').map(Number));
+    let b=arr[Math.floor(Math.random()*arr.length)];
+    r=Math.max(0,Math.min(N-1,b[0]+Math.floor(Math.random()*3)-1));
+    c=Math.max(0,Math.min(N-1,b[1]+Math.floor(Math.random()*3)-1));
+    if(!isGivenSide(r,c,axis)||isAxisCell(r,c,axis)) continue;
+   }
+   given.add(key(r,c));
+  }
+  // 答案
+  given.forEach(s=>{let [r,c]=s.split(',').map(Number);let m=mirror(r,c,axis);answer.add(key(m[0],m[1]));});
+  // 斜線若鏡像跑到題目側就不合理，重抽
+  let bad=[...answer].some(s=>{let [r,c]=s.split(',').map(Number);return isGivenSide(r,c,axis)||isAxisCell(r,c,axis);});
+  if(bad){ randShape(); return; }
+ }
+ render();
+}
+function genDouble(){
+ axis='double';
+ given.clear();answer.clear();
+ let target=5+Math.floor(Math.random()*3);
+ let tries=0;
+ while(given.size<target&&tries<500){
+  tries++;
+  let r=Math.floor(Math.random()*5),c=Math.floor(Math.random()*5);
+  if(given.size>0&&Math.random()<0.6){
+   let arr=[...given].map(s=>s.split(',').map(Number));
+   let b=arr[Math.floor(Math.random()*arr.length)];
+   r=Math.max(0,Math.min(4,b[0]+Math.floor(Math.random()*3)-1));
+   c=Math.max(0,Math.min(4,b[1]+Math.floor(Math.random()*3)-1));
+  }
+  given.add(key(r,c));
+ }
+ given.forEach(s=>{let [r,c]=s.split(',').map(Number);mirrorsDouble(r,c).forEach(m=>answer.add(key(m[0],m[1])));});
+}
+
+function render(){
+ const b=document.getElementById('board');b.innerHTML='';
+ document.getElementById('axisV').classList.add('hidden');
+ document.getElementById('axisH').classList.add('hidden');
+ document.getElementById('axisD').classList.add('hidden');
+ let label='';
+ if(axis==='vertical'){document.getElementById('axisV').classList.remove('hidden');label='直立對稱軸（左右對稱）';}
+ if(axis==='horizontal'){document.getElementById('axisH').classList.remove('hidden');label='水平對稱軸（上下對稱）';}
+ if(axis==='diag-main'){let d=document.getElementById('axisD');d.classList.remove('hidden');d.style.transform='rotate(45deg)';d.style.top='2%';d.style.left='8%';label='斜線對稱軸（＼方向）';}
+ if(axis==='diag-anti'){let d=document.getElementById('axisD');d.classList.remove('hidden');d.style.transform='rotate(-45deg)';d.style.top='2%';d.style.left='-22%';label='斜線對稱軸（／方向）';}
+ if(axis==='double'){document.getElementById('axisV').classList.remove('hidden');document.getElementById('axisH').classList.remove('hidden');label='💠 雙軸魔王（左右＋上下都要對稱，分數x2）';}
+ document.getElementById('axisLabel').textContent=label+(mode==='solo'||mode==='duo'?'｜第'+(round+1)+'/'+totalRounds+'回合':'');
+ for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+  let d=document.createElement('div');d.className='cell';d.dataset.r=r;d.dataset.c=c;
+  let k=key(r,c);
+  if(given.has(k)){d.classList.add('given');d.textContent='◆';}
+  else if(mine.has(k)){d.classList.add('mine');d.textContent='◆';}
+  if(isAxisCell(r,c,axis)) d.classList.add('axis');
+  b.appendChild(d);
+ }
+ document.getElementById('meBar').style.width='0%';
+ document.getElementById('msg').textContent='';
+ updateScore();
+}
+function updateScore(){
+ document.getElementById('meScore').textContent=meTotal;
+ document.getElementById('aiScore').textContent=aiTotal;
+ document.getElementById('p1').textContent=p1Total;
+ document.getElementById('p2').textContent=p2Total;
+ document.getElementById('combo').textContent=combo>=2?('🔥 '+combo+'連擊!'):'';
+}
+
+// 塗色互動
+const board=document.getElementById('board');
+board.addEventListener('pointerdown',e=>{let t=e.target.closest('.cell');if(!t)return;isDown=true;let k=t.dataset.r+','+t.dataset.c;if(given.has(k))return;paintVal=!mine.has(k);toggleCell(t);e.preventDefault();});
+board.addEventListener('pointerover',e=>{if(!isDown)return;let t=e.target.closest('.cell');if(!t)return;let k=t.dataset.r+','+t.dataset.c;if(given.has(k))return;let has=mine.has(k);if(has!==paintVal) toggleCell(t);});
+window.addEventListener('pointerup',()=>isDown=false);
+function toggleCell(t){let k=t.dataset.r+','+t.dataset.c;if(mine.has(k)){mine.delete(k);t.classList.remove('mine');t.textContent='';}else{mine.add(k);t.classList.add('mine');t.textContent='◆';}beep(600,0.05);liveBar();}
+function liveBar(){
+ let tp=[...mine].filter(k=>answer.has(k)).length;
+ let sc=answer.size?Math.round(tp/answer.size*100):0;
+ document.getElementById('meBar').style.width=Math.min(100,sc)+'%';
+}
+function clearMine(){mine.clear();render();beep(300,0.08);}
+function previewFold(){
+ previewUsed=true;
+ let cells=[...board.children];
+ let wrong=0;
+ mine.forEach(k=>{if(!answer.has(k))wrong++;});
+ answer.forEach(k=>{if(!mine.has(k))wrong++;});
+ cells.forEach(d=>{let k=d.dataset.r+','+d.dataset.c;d.classList.remove('error','hint-ok');
+  if(mine.has(k)&&!answer.has(k)) d.classList.add('error');
+  if(answer.has(k)&&mine.has(k)) d.classList.add('hint-ok');});
+ document.getElementById('msg').textContent= wrong===0?'🌟 完美！就是這樣，快按切割送出！':'🪞 對折後有 '+wrong+' 格沒重合，紅框是多畫的，繼續修正！（偷看會扣速度分喔）';
+ beep(880,0.12);
+}
+function scoreOf(){
+ let tp=[...mine].filter(k=>answer.has(k)).length;
+ let fp=[...mine].filter(k=>!answer.has(k)).length;
+ let fn=[...answer].filter(k=>!mine.has(k)).length;
+ let denom=tp+fp+fn;
+ let acc=denom===0?0:tp/denom;
+ return {tp,fp,fn,acc};
+}
+function submitCut(){
+ let s=scoreOf();
+ let timeBonus = mode==='practice'?0:Math.max(0,Math.round(timeLeft*1.5));
+ if(previewUsed) timeBonus=Math.round(timeBonus*0.7);
+ let base=Math.round(s.acc*100);
+ if(axis==='double') base*=2;
+ if(s.acc>=0.85) combo++; else combo=0;
+ let comboBonus=combo>=2?combo*10:0;
+ let total=base+timeBonus+comboBonus;
+ let stars=s.acc>=0.9?3:s.acc>=0.7?2:s.acc>=0.5?1:0;
+ beep(s.acc>=0.7?990:220,0.2);
+ let msg='正確率 '+Math.round(s.acc*100)+'%（對 '+s.tp+'／多 '+s.fp+'／漏 '+s.fn+'）＋速度 '+timeBonus+'＋連擊 '+comboBonus+' ＝ '+total+'分 '+('★'.repeat(stars));
+ document.getElementById('msg').textContent=msg;
+ history.push({axis,acc:s.acc,total});
+ if(mode==='solo'){meTotal+=total;stopAI();aiTotal+=aiFinal();updateScore();nextRound(total);}
+ else if(mode==='duo'){if(turn==='P1'){p1Total+=total;}else{p2Total+=total;}updateScore();nextDuo();}
+ else{meTotal+=total;updateScore();setTimeout(()=>{round++;randShape();},1200);}
+}
+function aiFinal(){
+ // 電腦實力隨回合提升 70~96%
+ let lo=65+round*4, hi=88+round*2;
+ let sc=Math.floor(lo+Math.random()*(hi-lo));
+ return axis==='double'?sc*2:sc;
+}
+function startAI(){
+ stopAI();aiProg=0;
+ aiTimer=setInterval(()=>{aiProg=Math.min(100,aiProg+3+Math.random()*8);
+  document.getElementById('aiBar').style.width=aiProg+'%';},400);
+}
+function stopAI(){if(aiTimer)clearInterval(aiTimer);}
+function nextRound(myScore){
+ setTimeout(()=>{
+  round++;
+  if(round>=totalRounds) endSolo();
+  else{resetTimer();randShape();startAI();}
+ },1800);
+}
+function nextDuo(){
+ setTimeout(()=>{
+  if(turn==='P1'){turn='P2';document.getElementById('turn').textContent='P2 紅方';mine.clear();render();alert('換 P2 上場！同一題再切一次！');}
+  else{
+   round++;
+   if(round>=totalRounds){endDuo();return;}
+   turn='P1';document.getElementById('turn').textContent='P1 藍方';randShape();
+  }
+ },1500);
+}
+
+// 流程
+function startGame(m){
+ mode=m;round=0;meTotal=0;aiTotal=0;p1Total=0;p2Total=0;combo=0;history=[];turn='P1';
+ totalRounds = m==='practice'?99:5;
+ document.getElementById('home').classList.add('hidden');
+ document.getElementById('result').classList.add('hidden');
+ document.getElementById('game').classList.remove('hidden');
+ document.getElementById('modeLabel').textContent=m==='practice'?'練習模式':m==='solo'?'單人PK電腦':'雙人PK';
+ document.getElementById('aiBox').style.display=m==='solo'?'':'none';
+ document.getElementById('aiBarWrap').style.display=m==='solo'?'':'none';
+ document.getElementById('duoBox').classList.toggle('hidden',m!=='duo');
+ document.getElementById('turn').textContent='P1 藍方';
+ document.getElementById('roundLabel').textContent=m==='practice'?'練習中':'第1回合';
+ randShape();
+ if(m!=='practice'){resetTimer();if(m==='solo')startAI();}
+ else{clearInterval(timer);document.getElementById('time').textContent='∞';}
+ loadBest();
+}
+function resetTimer(){
+ clearInterval(timer);timeLeft=60;
+ document.getElementById('time').textContent=timeLeft;
+ timer=setInterval(()=>{
+  timeLeft--;document.getElementById('time').textContent=timeLeft;
+  if(timeLeft<=0){clearInterval(timer);document.getElementById('msg').textContent='⏰ 時間到！自動送出！';submitCut();}
+ },1000);
+}
+function endSolo(){
+ clearInterval(timer);stopAI();
+ let win=meTotal>=aiTotal;
+ showResult(win?'🏆 你打敗切割機器人！':'🤖 機器人獲勝，再練一次復仇吧！', '你 '+meTotal+' 分 vs 機器人 '+aiTotal+' 分');
+}
+function endDuo(){
+ clearInterval(timer);
+ let winText=p1Total===p2Total?'🤝 平手！都是寶石王！':p1Total>p2Total?'🔵 P1 獲勝，奪得寶石王！':'🔴 P2 獲勝，奪得寶石王！';
+ showResult(winText,'P1 '+p1Total+' 分 vs P2 '+p2Total+' 分');
+}
+function showResult(title,detail){
+ document.getElementById('game').classList.add('hidden');
+ document.getElementById('result').classList.remove('hidden');
+ document.getElementById('winTitle').textContent=title;
+ document.getElementById('detail').textContent=detail;
+ let avg=history.length?history.reduce((a,b)=>a+b.acc,0)/history.length:0;
+ document.getElementById('starShow').textContent='★'.repeat(avg>=0.9?3:avg>=0.7?2:avg>=0.5?1:0)+' 綜合正確率 '+Math.round(avg*100)+'%';
+ let tb=document.getElementById('rec');tb.innerHTML='';
+ const names={vertical:'左右',horizontal:'上下','diag-main':'斜＼','diag-anti':'斜／',double:'雙軸x2'};
+ history.forEach((h,i)=>{tb.innerHTML+='<tr><td>'+(i+1)+'</td><td>'+(names[h.axis]||h.axis)+'</td><td>'+Math.round(h.acc*100)+'%</td><td>'+h.total+'</td></tr>';});
+ let best=Math.max(meTotal,p1Total,p2Total);
+ saveBest(best);
+}
+function saveBest(s){let b=+localStorage.getItem('gemBest')||0;if(s>b)localStorage.setItem('gemBest',s);loadBest();}
+function loadBest(){let b=+localStorage.getItem('gemBest')||0;document.getElementById('best').textContent=b;
+ document.getElementById('title').textContent=b>800?'💎 寶石大師':b>500?'🔥 切割高手':b>200?'✨ 見習工匠':'🌱 切割學徒';}
+function toggleHelp(){document.getElementById('helpBox').classList.toggle('hidden');}
+// 音效
+let AC=null;
+function beep(f,d){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();let o=AC.createOscillator(),g=AC.createGain();o.frequency.value=f;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+d);o.stop(AC.currentTime+d);}catch(e){}}
+loadBest();
+</script>
+</body>
+</html>
